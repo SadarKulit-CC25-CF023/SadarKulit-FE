@@ -7,7 +7,7 @@ export default function AuthorLayout({ tittle, children, type}) {
       <Navbar />
       <div  className="flex justify-center min-h-screen items-center"> 
         <div className="w-full max-w-xs">
-              <h1 className="text-3xl font-bold text-blue-500 ">{tittle}</h1>
+              <h1 className="text-3xl font-bold text-blue-500 mb-3 ">{tittle}</h1>
 
               {children}
 

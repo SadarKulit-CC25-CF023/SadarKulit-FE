@@ -2,21 +2,38 @@ import InputForm from "../../components/elements/Input";
 import Button from "../elements/Button";
 
 export default function FormLogin() {
-    const handleLogin = (e) => {
+    const handleLogin = async (e) => {
         e.preventDefault();
         const email = e.target.email.value;
         const password = e.target.password.value;
 
-        console.log("Email input:", email);
-        console.log("Password input:", password);
+        try {
+            const response = await fetch("http://localhost:5000/login", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ email, password }),
+            });
 
-        localStorage.setItem("email", email);
-        localStorage.setItem("password", password);
+            const data = await response.json();
 
-        console.log("Saved email from localStorage:", localStorage.getItem("email"));
-        console.log("Saved password from localStorage:", localStorage.getItem("password"));
+            if (!response.ok) {
+                alert(data.message || "Login gagal");
+                return;
+            }
 
-        window.location.href = "/product";
+            // Simpan token dan data user
+            localStorage.setItem("token", data.token);
+            localStorage.setItem("user", JSON.stringify(data.user));
+
+            // Arahkan ke halaman utama
+            window.location.href = "/";
+            
+        } catch (error) {
+            console.error("Login error:", error);
+            alert("Terjadi kesalahan saat login");
+        }
     };
 
     return (
