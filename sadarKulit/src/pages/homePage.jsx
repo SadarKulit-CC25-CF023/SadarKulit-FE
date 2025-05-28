@@ -20,7 +20,7 @@
       setIsLoggedIn(true);
 
       // Fetch history dari backend
-      fetch("http://localhost:5000/history", {
+      fetch("https://sadarkulit-be.vercel.app/history", {
         headers: {
           Authorization: `Bearer ${token}`,
         },

@@ -20,7 +20,7 @@ export default function Navbar() {
         <ul className="flex space-x-6 text-lg text-black font-light">
           <li>
             <a
-              href="#"
+              href="/"
               className="hover:text-cyan-400 transition duration-300 ease-in-out"
             >
               Beranda
