@@ -18,7 +18,7 @@ export default function FormLogin() {
     });
 
     try {
-      const response = await fetch("https://sadarkulit-be.vercel.app/login", {
+      const response = await fetch("https://sadarkulit-be.vercel.app/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

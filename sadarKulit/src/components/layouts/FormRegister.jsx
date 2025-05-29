@@ -45,7 +45,7 @@ export default function FormRegister() {
     });
 
     try {
-      const response = await fetch("https://sadarkulit-be.vercel.app/register", {
+      const response = await fetch("https://sadarkulit-be.vercel.app/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, email, password }),
