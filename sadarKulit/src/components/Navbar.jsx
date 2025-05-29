@@ -1,38 +1,70 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 export default function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
     setIsLoggedIn(!!token); // true jika ada token
   }, []);
 
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
+
   return (
-    <nav className="backdrop-blur-md bg-white/10 border-b border-white/20 text-white px-6 py-4 sticky top-0 z-50 shadow-md">
+    <nav className="backdrop-blur-md bg-white/10 border-b border-white/20 text-white px-4 py-4 sticky top-0 z-50 shadow-md">
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         {/* Logo */}
-        <a href="/" className="flex items-center space-x-2">
-          <img src="/Logo.png" alt="SadarKulit Logo" className="h-15 w-auto" />
-        </a>
+        <Link to="/" className="flex items-center space-x-2">
+          <img src="/Logo.png" alt="SadarKulit Logo" className="h-12 w-auto" />
+        </Link>
 
-        {/* Nav Links */}
-        <ul className="flex space-x-6 text-lg text-black font-light">
+        {/* Hamburger Icon (visible on mobile) */}
+        <button
+          className="md:hidden text-black focus:outline-none"
+          onClick={toggleMenu}
+          aria-label="Toggle menu"
+        >
+          <svg
+            className="w-8 h-8"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d={isMenuOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"}
+            />
+          </svg>
+        </button>
+
+        {/* Nav Links (Desktop) */}
+        <ul className="hidden md:flex space-x-6 text-lg text-black font-light">
           <li>
-            <a
-              href="/"
+            <Link
+              to="/"
               className="hover:text-cyan-400 transition duration-300 ease-in-out"
             >
               Beranda
-            </a>
+            </Link>
           </li>
           {isLoggedIn ? (
             <>
               <li>
-                <a href="#" className="hover:text-cyan-400">Deteksi</a>
+                <Link to="/deteksi" className="hover:text-cyan-400">
+                  Deteksi
+                </Link>
               </li>
               <li>
-                <a href="#" className="hover:text-cyan-400">Riwayat</a>
+                <Link to="/riwayat" className="hover:text-cyan-400">
+                  Riwayat
+                </Link>
               </li>
               <li>
                 <button
@@ -49,15 +81,73 @@ export default function Navbar() {
           ) : (
             <>
               <li>
-                <a href="/login" className="hover:text-cyan-400">Login</a>
+                <Link to="/login" className="hover:text-cyan-400">
+                  Login
+                </Link>
               </li>
               <li>
-                <a href="/register" className="hover:text-cyan-400">Daftar</a>
+                <Link to="/register" className="hover:text-cyan-400">
+                  Daftar
+                </Link>
               </li>
             </>
           )}
         </ul>
       </div>
+
+      {/* Mobile Menu (visible when toggled) */}
+      {isMenuOpen && (
+        <ul className="md:hidden flex flex-col items-center space-y-4 text-lg text-black font-light bg-white/90 backdrop-blur-md py-4">
+          <li>
+            <Link
+              to="/"
+              className="hover:text-cyan-400 transition duration-300 ease-in-out"
+              onClick={toggleMenu}
+            >
+              Beranda
+            </Link>
+          </li>
+          {isLoggedIn ? (
+            <>
+              <li>
+                <Link to="/deteksi" className="hover:text-cyan-400" onClick={toggleMenu}>
+                  Deteksi
+                </Link>
+              </li>
+              <li>
+                <Link to="/riwayat" className="hover:text-cyan-400" onClick={toggleMenu}>
+                  Riwayat
+                </Link>
+              </li>
+              <li>
+                <button
+                  onClick={() => {
+                    localStorage.removeItem("token");
+                    window.location.reload();
+                    toggleMenu();
+                  }}
+                  className="hover:text-red-400"
+                >
+                  Logout
+                </button>
+              </li>
+            </>
+          ) : (
+            <>
+              <li>
+                <Link to="/login" className="hover:text-cyan-400" onClick={toggleMenu}>
+                  Login
+                </Link>
+              </li>
+              <li>
+                <Link to="/register" className="hover:text-cyan-400" onClick={toggleMenu}>
+                  Daftar
+                </Link>
+              </li>
+            </>
+          )}
+        </ul>
+      )}
     </nav>
   );
 }
