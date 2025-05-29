@@ -77,7 +77,7 @@ export default function FormRegister() {
         />
 
         <Button
-          classname="mt-3 bg-blue-500 hover:bg-blue-700"
+          classname="mt-3 bg-cyan-500 hover:bg-cyan-600 mb-2"
           type="submit"
         >
           {loading ? "Mendaftarkan..." : "Daftar"}

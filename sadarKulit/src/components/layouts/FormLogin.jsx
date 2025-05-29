@@ -42,7 +42,7 @@ export default function FormLogin() {
                 <InputForm name="Email" inputFor="email" type="email" placeholder="Email"/>
                 <InputForm name="Password" inputFor="password" type="password" placeholder="Password"/>
                     
-                <Button classname="mt-5 bg-blue-500 hover:bg-blue-700" type="submit">
+                <Button classname="mt-5 bg-cyan-500 mb-2 hover:bg-cyan-600" type="submit">
                     Login
                 </Button>
             </form>
