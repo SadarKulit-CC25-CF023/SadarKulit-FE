@@ -43,7 +43,7 @@ export default function FormRegister() {
         Swal.showLoading();
       },
     });
-
+    
     try {
       const response = await fetch("https://sadarkulit-be.vercel.app/auth/register", {
         method: "POST",

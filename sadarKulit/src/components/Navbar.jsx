@@ -97,7 +97,7 @@ export default function Navbar() {
 
       {/* Mobile Menu (visible when toggled) */}
       {isMenuOpen && (
-        <ul className="md:hidden flex flex-col items-center space-y-4 text-lg text-black font-light bg-white/90 backdrop-blur-md py-4">
+        <ul className="md:hidden flex flex-col items-center space-y-4 text-lg text-black font-light backdrop-blur-md py-4">
           <li>
             <Link
               to="/"
