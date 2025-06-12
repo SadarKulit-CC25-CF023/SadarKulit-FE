@@ -1,8 +1,10 @@
 import InputForm from "../../components/elements/Input";
 import Button from "../elements/Button";
 import Swal from "sweetalert2";
+import { useNavigate } from "react-router-dom";
 
 export default function FormLogin() {
+  const navigate = useNavigate();
   const handleLogin = async (e) => {
     e.preventDefault();
     const email = e.target.email.value;
@@ -48,14 +50,14 @@ export default function FormLogin() {
         timer: 1500,
         showConfirmButton: false,
       }).then(() => {
-        window.location.href = "/";
+        navigate("/");
       });
     } catch (error) {
       console.error("Login error:", error);
       Swal.fire({
         icon: "error",
         title: "Kesalahan",
-        text: "Terjadi kesalahan saat login. Silakan coba lagi.",
+        text: "Terjadi kesalahan saat masuk. Silakan coba lagi.",
         confirmButtonColor: "#d33",
       });
     }

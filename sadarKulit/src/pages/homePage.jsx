@@ -1,7 +1,24 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Navbar from "../components/navbar";
+import Navbar from "../components/Navbar";
 import Swal from "sweetalert2";
+import { firstAidData } from "../data/firstAidData";
+import DetectionResult from "../components/DetectionResult";
+import Footer from "../components/Footer";
+
+// Peta untuk mencocokkan label user-friendly dengan ID
+const reverseLabelMap = {
+  "Eczema": "0",
+  "Warts Molluscum": "1",
+  "Melanoma": "2",
+  "Atopic Dermatitis": "3",
+  "Basal Cell Carcinoma": "4",
+  "Melanocytic Nevi": "5",
+  "Benign Keratosis-like Lesions": "6",
+  "Psoriasis": "7",
+  "Seborrheic Keratoses / Benign Tumor": "8",
+  "Tinea Ringworm Candidiasis / Fungal Infections": "9"
+};
 
 export default function HomePage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -9,6 +26,27 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const [detectionResult, setDetectionResult] = useState(null); // Ini akan menyimpan hasil deteksi
+
+  const fetchHistory = async (token) => {
+    try {
+      const response = await fetch("https://sadarkulit-be.vercel.app/history", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) {
+        const errMsg = await response.json();
+        throw new Error(errMsg.message || "Gagal mengambil data riwayat");
+      }
+      const data = await response.json();
+      setHistoryData(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -17,35 +55,15 @@ export default function HomePage() {
       setLoading(false);
       return;
     }
-
     setIsLoggedIn(true);
-
-    // Fetch history dari backend
-    fetch("https://sadarkulit-be.vercel.app/history", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-      .then(async (res) => {
-        if (!res.ok) {
-          const errMsg = await res.json();
-          throw new Error(errMsg.message || "Gagal mengambil data riwayat");
-        }
-        return res.json();
-      })
-      .then((data) => {
-        setHistoryData(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
-      });
+    fetchHistory(token);
   }, []);
 
   const handleUpload = async (e) => {
     e.preventDefault();
     const file = e.target.image.files[0];
+    setDetectionResult(null); // Reset hasil deteksi sebelumnya
+
     if (!file) {
       Swal.fire({
         icon: "warning",
@@ -55,9 +73,18 @@ export default function HomePage() {
       });
       return;
     }
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      Swal.fire({
+        icon: "warning",
+        title: "Format Tidak Didukung",
+        text: "Hanya file JPEG, PNG, atau WEBP yang diizinkan!",
+        confirmButtonColor: "#3085d6",
+      });
+      return;
+    }
 
     Swal.fire({
-      title: "Mengunggah...",
+      title: "Menganalisis...",
       text: "Harap tunggu saat kami memproses gambar Anda",
       allowOutsideClick: false,
       didOpen: () => {
@@ -69,26 +96,56 @@ export default function HomePage() {
       const formData = new FormData();
       formData.append("image", file);
 
-      const response = await fetch("https://sadarkulit-be.vercel.app/detect", {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("Anda harus login untuk melakukan deteksi");
+
+      const response = await fetch("https://sadarkulit-be.vercel.app/predict", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Gagal mendeteksi penyakit kulit");
+        throw new Error(data.error || "Gagal mendeteksi penyakit kulit");
       }
 
-      Swal.fire({
-        icon: "success",
-        title: "Deteksi Berhasil",
-        text: `Hasil deteksi: ${data.detectedDisease || "Tidak diketahui"}`,
-        confirmButtonColor: "#3085d6",
-      });
+      Swal.close();
+
+      // --- LOGIKA BARU UNTUK MENENTUKAN "NORMAL" ---
+      if (data.confidence < 0.4) {
+        setDetectionResult({
+          diseaseName: "Normal",
+          causes: ["Tingkat keyakinan deteksi di bawah 40%.", "Perlu konsultasi lebih lanjut dengan ahli medis."],
+          firstAidSteps: [{
+            title: "Tinjau Kembali Gambar",
+            description: "Pastikan gambar yang diunggah jelas dan fokus. Unggah kembali jika perlu."
+          }, {
+            title: "Konsultasi Ahli Medis",
+            description: "Meskipun hasil menunjukkan 'Normal' dengan keyakinan rendah, sangat disarankan untuk tetap berkonsultasi dengan dokter kulit untuk diagnosis akurat."
+          }],
+          confidence: data.confidence
+        });
+      } else {
+        // Logika yang sudah ada untuk penyakit yang terdeteksi dengan keyakinan tinggi
+        const extractedId = reverseLabelMap[data.predicted_disease];
+        const matchedData = firstAidData.find(item => item.id === extractedId);
+
+        if (matchedData) {
+          const finalResult = { ...matchedData, confidence: data.confidence };
+          setDetectionResult(finalResult);
+        } else {
+          throw new Error("Informasi detail untuk penyakit ini tidak ditemukan.");
+        }
+      }
+      // --- AKHIR LOGIKA BARU ---
+
+      setTimeout(() => {
+        document.getElementById('result-section')?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+
+      await fetchHistory(token); // Perbarui riwayat setelah deteksi
     } catch (error) {
       Swal.fire({
         icon: "error",
@@ -99,13 +156,36 @@ export default function HomePage() {
     }
   };
 
+  const handleHistoryClick = (historyItem) => {
+    const diseaseString = historyItem.detectedDisease;
+    if (!diseaseString) return;
+
+    // Untuk riwayat, kita asumsikan semua adalah penyakit yang terdeteksi
+    // Jika Anda juga ingin menampilkan "Normal" dari riwayat, Anda perlu menyimpan "Normal" sebagai detectedDisease di backend
+    const extractedId = reverseLabelMap[diseaseString];
+
+    if (extractedId) {
+      const matchedData = firstAidData.find(item => item.id === extractedId);
+      if (matchedData) {
+        const resultToShow = { ...matchedData };
+        // Jika Anda menyimpan confidence di riwayat, tambahkan di sini juga
+        // if (historyItem.confidence) resultToShow.confidence = historyItem.confidence;
+        setDetectionResult(resultToShow);
+        document.getElementById('result-section')?.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        Swal.fire('Info', `Informasi detail untuk "${diseaseString}" tidak lengkap.`, 'info');
+      }
+    } else {
+      Swal.fire('Info', `Tidak dapat menemukan ID untuk "${diseaseString}".`, 'info');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Navbar */}
       <Navbar />
-
       {/* Hero Section */}
       <div
+        id="hero"
         className="relative py-12 px-4 sm:py-16 sm:px-6 md:py-24 md:px-10 bg-cover bg-center text-white"
         style={{ backgroundImage: 'url("/bg.png")' }}
       >
@@ -117,96 +197,141 @@ export default function HomePage() {
           <p className="text-lg sm:text-xl md:text-2xl text-black mb-6 sm:mb-8 leading-relaxed">
             Website Pendeteksi Penyakit Kulit
           </p>
-          <button className="px-6 py-2 sm:px-8 sm:py-3 border border-cyan-500 bg-transparent rounded-3xl hover:bg-cyan-500 hover:text-white transition duration-300">
+          <button
+            onClick={() => document.querySelector('input[name="image"]').click()}
+            className="px-6 py-2 sm:px-8 sm:py-3 border border-cyan-500 bg-transparent rounded-3xl hover:bg-cyan-500 hover:text-white transition duration-300"
+          >
             <p className="text-cyan-500 hover:text-white">Deteksi Sekarang</p>
           </button>
         </div>
       </div>
 
-      {/* Upload Section */}
-      <div className="mt-8 sm:mt-12 md:mt-16 flex flex-col md:flex-row items-center justify-center px-4 sm:px-6">
-        <img
-          src="/pemanis1.png"
-          alt="SadarKulit Logo"
-          className="w-full sm:max-w-sm md:max-w-md object-contain mb-6 md:mb-0 md:mr-8"
-        />
-        <div className="flex w-full flex-col items-center text-center">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-medium text-cyan-500 mb-6 md:mb-10">
-            Deteksi Penyakit Kulit Kamu!
-          </h1>
-          <form onSubmit={handleUpload} className="flex flex-col sm:flex-row items-center gap-4">
-            <input
-              type="file"
-              name="image"
-              accept="image/*"
-              className="border border-gray-300 rounded-3xl p-2 w-full sm:w-auto"
-            />
-            <button
-              type="submit"
-              className="px-4 py-2 text-cyan-500 border border-cyan-500 bg-transparent rounded-3xl hover:bg-cyan-500 hover:text-white transition duration-300"
-            >
-              Upload
-            </button>
-          </form>
-        </div>
-      </div>
+      <div id="deteksi">
 
-      {/* Riwayat Section */}
-      <div className="relative mt-8 sm:mt-12 md:mt-16 flex flex-col md:flex-row justify-center px-4 sm:px-6">
-        {/* <img
-          src="/rectangle1.png"
-          alt="SadarKulit Logo"
-          className="mt-"
-        /> */}
-        <div className="flex w-full flex-col items-center text-center">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-medium text-black mb-6 md:mb-10">
-            Riwayat Kulit Kamu
-          </h1>
-
-          {loading && <p>Loading riwayat...</p>}
-          {error && <p className="text-red-500">Error: {error}</p>}
-
-          {!loading && !isLoggedIn && (
-            <div className="text-center">
-              <p className="text-gray-600 text-base sm:text-lg mb-4">
-                Oops, kamu belum login 😅
-              </p>
+        {/* 2. Ini adalah Upload Section Anda (id="deteksi" sudah dihapus dari sini) */}
+        <div className="mt-8 sm:mt-12 md:mt-16 flex flex-col md:flex-row items-center justify-center px-4 sm:px-6">
+          <img
+            src="/pemanis1.png"
+            alt="SadarKulit Logo"
+            className="w-full sm:max-w-sm md:max-w-md object-contain mb-6 md:mb-0 md:mr-8"
+          />
+          <div className="flex w-full flex-col items-center text-center">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-medium text-cyan-500 mb-6 md:mb-10">
+              Deteksi Penyakit Kulit Kamu!
+            </h1>
+            <form onSubmit={handleUpload} className="flex flex-col sm:flex-row items-center gap-4">
+              <input
+                type="file"
+                name="image"
+                accept="image/jpeg,image/png,image/webp"
+                className="border border-gray-300 rounded-3xl p-2 w-full sm:w-auto"
+              />
               <button
-                onClick={() => navigate("/login")}
-                className="px-6 py-2 text-cyan-500 border border-cyan-500 rounded-full hover:bg-cyan-500 hover:text-white transition"
+                type="submit"
+                className="px-4 py-2 text-cyan-500 border border-cyan-500 bg-transparent rounded-3xl hover:bg-cyan-500 hover:text-white transition duration-300"
               >
-                Login Sekarang
+                Upload
               </button>
-            </div>
-          )}
-
-          {!loading && isLoggedIn && historyData.length === 0 && (
-            <p className="text-gray-700 text-base sm:text-lg">
-              Belum ada riwayat deteksi kulit.
-            </p>
-          )}
-
-          {!loading && isLoggedIn && historyData.length > 0 && (
-            <div className="flex flex-col items-center space-y-4">
-              {historyData.map((item, idx) => (
-                <div key={item._id || idx} className="flex items-center space-x-3">
-                  <span className="text-gray-700 text-sm sm:text-base">
-                    {new Date(item.dateChecked).toLocaleDateString()}
-                  </span>
-                  <button className="px-4 py-2 bg-white border border-gray-300 rounded-full text-gray-700 text-sm sm:text-base">
-                    {item.detectedDisease || "Tidak diketahui"}
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+            </form>
+          </div>
         </div>
-        <img
-          src="/pemanis2.png"
-          alt="SadarKulit Logo"
-          className="w-auto object-contain mt-6 md:mt-0 md:ml-8"
-        />
+
+        {/* 3. Ini adalah Result Section Anda (tetap dengan id="result-section") */}
+        {/* Section ini akan muncul atau hilang di dalam wrapper 'deteksi' */}
+        {detectionResult && (
+          <div id="result-section" className="w-full max-w-4xl mx-auto my-12 sm:my-16 px-4 sm:px-6">
+            <DetectionResult diseaseInfo={detectionResult} />
+          </div>
+        )}
       </div>
+
+      {/* --- BAGIAN RIWAYAT (VERSI BARU DENGAN GAMBAR) --- */}
+      <div id="riwayat" className="w-full bg-gray-50 py-12 sm:py-16">
+        <div className="container mx-auto px-4 sm:px-6">
+
+          {/* Judul Section (tetap di tengah) */}
+          <div className="text-center mb-10">
+            <h1 className="text-3xl sm:text-4xl font-bold text-gray-800">
+              Riwayat Deteksi Anda
+            </h1>
+            <p className="text-gray-500 mt-2">Lihat kembali hasil deteksi yang pernah Anda lakukan.</p>
+          </div>
+
+          {/* Kontainer utama dengan layout 2 kolom di layar medium (md) ke atas */}
+          <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16">
+
+            {/* --- KOLOM KIRI: DAFTAR RIWAYAT --- */}
+            <div className="w-full md:w-3/5 lg:w-1/2">
+              <div className="status-container">
+
+                {/* Kondisi Loading, Error, Belum Login, atau Riwayat Kosong */}
+                {loading && <p className="text-center text-gray-600">Loading riwayat...</p>}
+                {error && <p className="text-center text-red-600">Error: {error}</p>}
+
+                {!loading && !isLoggedIn && (
+                  <div className="text-center bg-white p-8 rounded-lg shadow-sm">
+                    <p className="text-gray-600 text-lg mb-4">
+                      Oops, kamu belum masuk untuk melihat riwayat 😅
+                    </p>
+                    <button
+                      onClick={() => navigate("/login")}
+                      className="px-6 py-2 text-cyan-500 border border-cyan-500 rounded-full hover:bg-cyan-500 hover:text-white transition"
+                    >
+                      Login Sekarang
+                    </button>
+                  </div>
+                )}
+
+                {!loading && isLoggedIn && historyData.length === 0 && (
+                  <p className="text-center text-gray-700 text-lg">
+                    Belum ada riwayat deteksi kulit yang tersimpan.
+                  </p>
+                )}
+
+                {/* Tampilan utama untuk daftar riwayat jika ada data */}
+                {!loading && isLoggedIn && historyData.length > 0 && (
+                  <div className="space-y-4">
+                    {historyData.map((item, idx) => (
+                      <div
+                        key={item._id || idx}
+                        className="flex items-center justify-between bg-white p-4 rounded-xl shadow-md border-l-4 border-cyan-500 hover:shadow-lg transition-shadow duration-300"
+                      >
+                        <span className="font-mono text-sm sm:text-base text-gray-500">
+                          {new Date(item.dateChecked).toLocaleDateString('id-ID', {
+                            year: 'numeric', month: 'long', day: 'numeric'
+                          })}
+                        </span>
+
+                        {/* --- TAMBAHKAN onClick DI SINI --- */}
+                        <button
+                          onClick={() => handleHistoryClick(item)}
+                          className="px-5 py-2 bg-cyan-500 text-white rounded-full text-sm sm:text-base font-semibold hover:bg-cyan-600 transition-colors duration-300"
+                        >
+                          {item.detectedDisease || "Tidak diketahui"}
+                        </button>
+                        {/* ------------------------------- */}
+
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* --- KOLOM KANAN: GAMBAR PEMANIS --- */}
+            {/* Gambar ini disembunyikan di layar kecil (mobile) dan muncul di layar medium ke atas */}
+            <div className="hidden md:block md:w-2/5 lg:w-1/2 p-4">
+              <img
+                src="/pemanis2.png"
+                alt="Ilustrasi Perawatan Kulit"
+                className="w-full h-auto object-contain rounded-lg"
+              />
+            </div>
+
+          </div>
+        </div>
+      </div>
+      <Footer />
     </div>
   );
 }

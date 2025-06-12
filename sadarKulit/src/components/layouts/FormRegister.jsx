@@ -2,10 +2,11 @@ import { useState } from "react";
 import InputForm from "../../components/elements/Input";
 import Button from "../elements/Button";
 import Swal from "sweetalert2";
+import { useNavigate } from "react-router-dom";
 
 export default function FormRegister() {
   const [loading, setLoading] = useState(false);
-
+  const navigate = useNavigate();
   const handleRegister = async (e) => {
     e.preventDefault();
 
@@ -43,7 +44,7 @@ export default function FormRegister() {
         Swal.showLoading();
       },
     });
-    
+
     try {
       const response = await fetch("https://sadarkulit-be.vercel.app/auth/register", {
         method: "POST",
@@ -62,11 +63,11 @@ export default function FormRegister() {
       Swal.fire({
         icon: "success",
         title: "Registrasi Berhasil",
-        text: "Akun Anda telah dibuat. Anda akan diarahkan ke halaman login.",
+        text: "Akun Anda telah dibuat. Anda akan diarahkan ke halaman utama.",
         timer: 2000,
         showConfirmButton: false,
       }).then(() => {
-        window.location.href = "/login";
+        navigate("/");
       });
     } catch (error) {
       Swal.fire({
@@ -77,7 +78,6 @@ export default function FormRegister() {
       });
     } finally {
       setLoading(false);
-      Swal.close();
     }
   };
 
